@@ -163,6 +163,33 @@ public class AppointmentsController :ControllerBase
             return Ok();
         }
         
+        [HttpDelete("{idAppointment}")]
+        public async Task<IActionResult> DeleteAppointment(int idAppointment)
+        {
+            await using var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
+            
+            var getQuery = "SELECT Status FROM dbo.Appointments WHERE IdAppointment = @Id;";
+            await using var getCommand = new SqlCommand(getQuery, connection);
+            getCommand.Parameters.AddWithValue("@Id", idAppointment);
+
+            var statusObj = await getCommand.ExecuteScalarAsync();
+            if (statusObj == null)
+                return NotFound(new ErrorResponseDto { Message = "Appointment not found." });
+
+            if (statusObj.ToString() == "Completed")
+                return Conflict(new ErrorResponseDto { Message = "Cannot delete a completed appointment." });
+
+            
+            var deleteQuery = "DELETE FROM dbo.Appointments WHERE IdAppointment = @Id;";
+            await using var deleteCommand = new SqlCommand(deleteQuery, connection);
+            deleteCommand.Parameters.AddWithValue("@Id", idAppointment);
+            
+            await deleteCommand.ExecuteNonQueryAsync();
+
+            return NoContent();
+        }
+        
         private async Task<T> ExecuteScalarAsync<T>(SqlConnection connection, string query, params SqlParameter[] parameters)
     {
         await using var command = new SqlCommand(query, connection);
